@@ -1,54 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
+import { getImagesFromServerWithAxios, getImagesFromServer, shouldReplaceSelectedImage } from './utils/captchaUtils';
+import { testObject, captchaImage } from './interfaces/i.captcha';
 import './index.css';
-
-interface testObject {
-    testName?: string;
-    testNumber?: number;
-}
-
-interface captchaImage {
-    imageUrl: string;
-}
-
-interface requestImageToServerBody {
-    inputs: [{
-        data: {
-            image: {
-                url: string,
-            }
-        }
-    }]
-}
-
 interface Props {
     name: string;
     sampleAsObject?: testObject;
 }
 
-const Captcha: React.FC<Props> = ({ name, sampleAsObject }) => {
+const Captcha: FC<Props> = ({ name, sampleAsObject }) => {
     const amountOfImages: number = 6;
+    const amountOfCorrectImages: number = 3;
 
     const [title, setTitle] = useState('Empty');
-    const [arrayOfImages, setArrayOfImages] = useState<Array<any>>([]);
-
-    const getImagesFromServer = () => {
-        const url: string = "https://xtima6ctq9.execute-api.us-east-1.amazonaws.com/dev/"
-        return fetch(url)
-            .then((response) => { return response.json() })
-            .then((data) => {
-                return data;
-            })
-    }
+    const [arrayOfImages, setArrayOfImages] = useState<Array<captchaImage>>([]);
+    const [arrayOfCorrectImages, setArrayCorrectOfImages] = useState<Array<captchaImage>>([]);
 
     useEffect(() => {
         async function fetchData() {
-            let arrayAux: Array<any> = [];
+            let arrayAux: Array<captchaImage> = [];
             for (let index = 0; index < amountOfImages; index++) {
-                arrayAux.push(await getImagesFromServer());
-                /* setArrayOfImages([
-                    ...arrayOfImages,
-                    image,
-                ]) */
+                arrayAux.push(await getImagesFromServerWithAxios());
             }
             setArrayOfImages(arrayAux);
         }
@@ -57,69 +28,90 @@ const Captcha: React.FC<Props> = ({ name, sampleAsObject }) => {
         return (() => { setTitle('Done') })
     }, [])
 
-    const imageClicked = async (event: React.FormEvent<EventTarget>) => {
+    const imageClicked = async (event: React.MouseEvent<EventTarget>) => {
         const target = event.target as HTMLImageElement;
-        const shouldReplace = await shouldReplaceSelectedImage(target?.src);
-        if (shouldReplace) {
-            replaceInArray(parseInt(target?.id));
+        const source: string = target?.src;
+        const id: number = parseInt(target?.id);
+
+        const isCaptchaValidatingImage = arrayOfImages.some((element: captchaImage) => {
+            return element.isLoading === true;
+        });
+        if (isCaptchaValidatingImage) return;
+
+        arrayOfImages[id].isLoading = true;
+        setArrayOfImages([...arrayOfImages]);
+
+        const shouldReplace = await shouldReplaceSelectedImage(source);
+
+        if (!shouldReplace) {
+            arrayOfImages[id].isLoading = false;
+            setArrayOfImages([...arrayOfImages]);
+            return;
         }
+
+        replaceInArray(id);
     }
 
     const replaceInArray = async (index: number) => {
         const imageUrl: captchaImage = await getImagesFromServer();
-        console.log("🚀 ~ imageUrl", imageUrl)
+        setArrayCorrectOfImages([...arrayOfCorrectImages, arrayOfImages[index]]);
+
         if (index !== -1) {
             arrayOfImages[index] = imageUrl;
         }
-        setArrayOfImages([...arrayOfImages]);
+
+        if (arrayOfCorrectImages.length < amountOfCorrectImages - 1) {
+            setArrayOfImages([...arrayOfImages]);
+        }
     }
 
-    const shouldReplaceSelectedImage = (imageUrl?: string) => {
-        const url: string = "https://api.clarifai.com/v2/models/bd367be194cf45149e75f01d59f77ba7/outputs";
-        const authorizationKey: string = "10a253b5940d49eab778ec456dff4a55";
-        const body: requestImageToServerBody = { inputs: [{ data: { image: { url: imageUrl || "", } } }] }
-        const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Key ${authorizationKey}`,
-        };
-        return fetch(url, {
-            method: 'post',
-            body: JSON.stringify(body),
-            headers,
-        }).then((response) => {
-            return response.json();
-        }).then((data) => {
-            if (data?.status?.description === "Ok" || data?.status?.code === 10000) {
-                return true
-            }
-            return false;
-        }).catch((error) => {
-            console.error("🚀 ~ shouldReplaceSelectedImage error", error)
-            return false;
-        });
+    const renderingOfCatcha = () => {
+        if (Array.isArray(arrayOfImages) && Array.isArray(arrayOfCorrectImages) && arrayOfCorrectImages.length < amountOfCorrectImages) {
+            return arrayOfImages.map((element, index) => {
+                return (
+                    <div className="container" key={index}>
+                        <img
+                            onClick={imageClicked}
+                            src={element?.imageUrl}
+                            alt={`image_${index}`}
+                            key={index}
+                            id={index.toString()}
+                            width="400"
+                            height="400" />
+                        {
+                            (element.isLoading) &&
+                            <span className="loading-icon lds-dual-ring" />
+                        }
+                    </div>
+                )
+            })
+        }
+        return (
+            arrayOfCorrectImages.map((element, index) => {
+                return (
+                    <div className="result-container">
+                        <img
+                            src={element?.imageUrl}
+                            alt={`image_${index}`}
+                            key={index}
+                            id={index.toString()}
+                            width="400"
+                            height="400" />
+                    </div>
+                )
+            })
+        )
     }
 
     return (
         <div>
             {title} {name}
             <br />
+            {arrayOfCorrectImages.length > 2 && <h2>Selected Images:</h2>}
             <section
-                className="container"
+                className="captcha-container"
             >
-                {
-                    arrayOfImages.map((element, index) => {
-                        return (
-                            <img
-                                onClick={imageClicked}
-                                src={element?.imageUrl}
-                                alt={`image_${index}`}
-                                key={index}
-                                id={index.toString()}
-                                width="400"
-                                height="400" />
-                        )
-                    })
-                }
+                {renderingOfCatcha()}
             </section>
         </div>
     )

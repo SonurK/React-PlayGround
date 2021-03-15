@@ -1,9 +1,66 @@
-.container {
+.captcha-container {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     padding: 2rem;
 }
 
-.container img {
+.container {
+    display: flex;
+    border: 1px solid white;
+    padding: 2px;
+    min-width: 400px;
+    min-height: 400px;
+    /* flex: 0 0 33.333333%; */
+}
+
+.container:hover {
+    cursor: pointer;
+    opacity: 0.6;
+    transition: 0.3s;
+}
+
+.result-container {
+    display: flex;
+    border: 1px solid white;
+    padding: 2px;
+    min-width: 400px;
+    min-height: 400px;
+}
+
+/* .container > img {
     flex: 0 0 33.333333%;
+} */
+
+/* Animation */
+
+.loading-icon {
+    position: absolute;
+}
+
+.lds-dual-ring {
+    width: 80px;
+    height: 80px;
+}
+
+.lds-dual-ring:after {
+    content: " ";
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin: 8px;
+    border-radius: 50%;
+    border: 6px solid #fff;
+    border-color: #fff transparent #fff transparent;
+    animation: lds-dual-ring 1.2s linear infinite;
+}
+
+@keyframes lds-dual-ring {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
